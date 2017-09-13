@@ -823,7 +823,6 @@ RCT_EXPORT_METHOD(getView: (NSString*) db
 
 RCT_EXPORT_METHOD(installPrebuiltDatabase:(NSString *) databaseName)
 {
-    CBLManager* manager = [CBLManager sharedInstance];
     CBLDatabase* db = [manager existingDatabaseNamed:databaseName error:nil];
     if (db == nil) {
         NSString* dbPath = [[NSBundle mainBundle] pathForResource:databaseName ofType:@"cblite2"];
