@@ -46,6 +46,8 @@ NSString* const ONLINE_KEY = @"couchBaseOnline";
             NSLog(@"Cannot create Manager instance");
             return self;
         }
+
+
     }
     return self;
 }
@@ -317,12 +319,18 @@ RCT_EXPORT_METHOD(serverManager: (RCTResponseSenderBlock) onEnd)
     if (!manager) {
         NSLog(@"Couchbase manager does not exist.");
     }
+
+    NSLog (@"Default directory for CBLManager: %@", [CBLManager defaultDirectory]);
+
+    [CBLManager enableLogging:@"Database"];
+    [CBLManager enableLogging:@"Router"];
+    [CBLManager enableLogging:@"Listener"];
+
     // Callback handler
     if (onEnd != nil) {
         onEnd(@[]);
     }
 }
-
 
 RCT_EXPORT_METHOD(serverLocal: (int) listenPort
                   withUserLocal: (NSString*) userLocal
@@ -370,9 +378,6 @@ RCT_EXPORT_METHOD(serverLocalRemote: (int) listenPort
            withCallback:nil];
     }];
 }
-
-
-
 
 RCT_EXPORT_METHOD(serverRemote: (NSString*) databaseLocal
                   withRemoteUrl: (NSString*) remoteUrl
@@ -464,6 +469,23 @@ RCT_EXPORT_METHOD(setTimeout: (NSInteger) newtimeout)
 {
     timeout = newtimeout;
 }
+
+RCT_EXPORT_METHOD(getDatabase: (NSString*) databaseName
+                  resolver:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject)
+{
+    [manager doAsync:^(void) {
+        NSError* err;
+        CBLDatabase* database = [manager existingDatabaseNamed:databaseName error:&err];
+        if (!database) {
+            reject(@"not_opened", [NSString stringWithFormat:@"Database %@: could not be opened", databaseName], err);
+        } else {
+            [databases setObject:database forKey:databaseName];
+            resolve(@{});
+        }
+    }];
+}
+
 
 RCT_EXPORT_METHOD(createDatabase: (NSString*) databaseName
                   resolver:(RCTPromiseResolveBlock)resolve
@@ -799,5 +821,14 @@ RCT_EXPORT_METHOD(getView: (NSString*) db
     }];
 }
 
+RCT_EXPORT_METHOD(installPrebuiltDatabase:(NSString *) databaseName)
+{
+    CBLManager* manager = [CBLManager sharedInstance];
+    CBLDatabase* db = [manager existingDatabaseNamed:databaseName error:nil];
+    if (db == nil) {
+        NSString* dbPath = [[NSBundle mainBundle] pathForResource:databaseName ofType:@"cblite2"];
+        [manager replaceDatabaseNamed:databaseName withDatabaseDir:dbPath error:nil];
+    }
+}
 
 @end

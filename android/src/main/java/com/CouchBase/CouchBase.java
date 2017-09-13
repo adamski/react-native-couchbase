@@ -1153,4 +1153,26 @@ public class CouchBase extends ReactContextBaseJavaModule {
             promise.reject("NOT_OPENED", e);
         }
     }
+
+    @ReactMethod
+    public void installPrebuiltDatabase(String name) {
+        Manager ss = null;
+        Database db = null;
+        try {
+            ss = this.managerServer;
+            db = manager.getExistingDatabase(name);
+        } catch (IOException e) {
+            e.printStackTrace();
+        } catch (CouchbaseLiteException e) {
+            e.printStackTrace();
+        }
+        if (db == null) {
+            try {
+                ZipUtils.unzip(this.context.getAssets().open(name + ".zip"), ss.getContext().getFilesDir());
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+
+    }
 }
