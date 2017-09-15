@@ -7,6 +7,7 @@
 //
 
 #import "RCTCouchBase.h"
+#import <React/RCTConvert.h>
 
 @implementation RCTCouchBase
 
@@ -226,6 +227,7 @@ withRemotePassword: (NSString*) remotePassword
     withRemoteUser: (NSString*) remoteUser
 withRemotePassword: (NSString*) remotePassword
         withEvents: (BOOL) events
+        withOptions: (NSDictionary*) options
           resolver: (RCTPromiseResolveBlock) resolve
           rejecter: (RCTPromiseRejectBlock) reject
 {
@@ -235,13 +237,21 @@ withRemotePassword: (NSString*) remotePassword
     } else {
         // Establish the connection.
         NSURL *url = [NSURL URLWithString:remoteUrl];
-        id<CBLAuthenticator> auth = [CBLAuthenticator
-                                     basicAuthenticatorWithName:remoteUser
-                                     password:remotePassword];
         CBLReplication* pull = [db createPullReplication: url];
-        pull.continuous = YES;
-        pull.authenticator = auth;
-        
+
+        if (remoteUser && remotePassword) {
+            id <CBLAuthenticator> auth = [CBLAuthenticator
+                    basicAuthenticatorWithName:remoteUser
+                                      password:remotePassword];
+            pull.authenticator = auth;
+        }
+
+        pull.continuous = [RCTConvert BOOL:options[@"continuous"]] || YES;
+        pull.channels = [RCTConvert NSStringArray:options[@"channels"]];
+        pull.filter = [RCTConvert NSString:options[@"filter"]];
+        pull.filterParams = [RCTConvert NSDictionary:options[@"filterParams"]];
+        pull.documentIDs = [RCTConvert NSStringArray:options[@"documentIDs"]];
+
         if (timeout > 0) {
             pull.customProperties = @{
                                       @"poll": [NSNumber numberWithInteger:timeout],
@@ -429,9 +439,11 @@ RCT_EXPORT_METHOD(serverRemotePull: (NSString*) databaseLocal
                   withRemoteUser: (NSString*) remoteUser
                   withRemotePassword: (NSString*) remotePassword
                   withEvents: (BOOL) events
+                  withOptions: (NSDictionary*) options
                   resolver: (RCTPromiseResolveBlock) resolve
                   rejecter: (RCTPromiseRejectBlock) reject)
 {
+
     [manager doAsync:^(void) {
         // Init sync.
         [self startPull:databaseLocal
@@ -439,6 +451,7 @@ RCT_EXPORT_METHOD(serverRemotePull: (NSString*) databaseLocal
          withRemoteUser:remoteUser
      withRemotePassword:remotePassword
              withEvents:events
+            withOptions:options
                resolver:resolve
                rejecter:reject];
     }];
@@ -695,6 +708,35 @@ RCT_EXPORT_METHOD(getAllDocuments: (NSString*) db
     }];
 }
 
+RCT_EXPORT_METHOD(addView: (NSString*) db
+                              withName: (NSString*) name
+                              withMapFunction: (NSString*) mapFunction
+                              resolver:(RCTPromiseResolveBlock)resolve
+                              rejecter:(RCTPromiseRejectBlock)reject)
+{
+    // Create a view and register its map function
+    if (![manager databaseExistsNamed: db]) {
+        reject(@"not_opened", [NSString stringWithFormat:@"Database %@: could not be opened", db], nil);
+        return;
+    }
+
+    [manager doAsync:^(void) {
+        NSError *err;
+
+        CBLRegisterJSViewCompiler();
+        CBLDatabase *database = [manager existingDatabaseNamed:db error:&err];
+        CBLView *view = [database viewNamed:name];
+        CBLMapBlock mapBlock = [[CBLView compiler] compileMapFunction: mapFunction
+                                            language: @"javascript"];
+        [view setMapBlock:mapBlock version:@"1"];
+
+        if (![database existingViewNamed:name]) {
+            reject(@"not_added", [NSString stringWithFormat:@"View %@: was not added to database", name], nil);
+            return;
+        }
+    }];
+}
+
 
 RCT_EXPORT_METHOD(getView: (NSString*) db
                   withDesign: (NSString*) design
@@ -710,10 +752,14 @@ RCT_EXPORT_METHOD(getView: (NSString*) db
     }
     [manager doAsync:^(void) {
         NSError* err;
-        
+        NSLog(@"Getting View named %@", viewName);
         CBLDatabase* database = [manager existingDatabaseNamed:db error:&err];
         CBLView* view = [database existingViewNamed:viewName];
         if (view == nil || (view && [view mapBlock] == nil)) {
+            if (view && [view mapBlock] == nil)
+                NSLog(@"MapBlock for %@ nil", viewName);
+            else NSLog(@"View %@ nil", viewName);
+
             view = [database viewNamed:viewName];
             
             CBLDocument* viewsDoc = [database existingDocumentWithID:[NSString stringWithFormat:@"_design/%@", design]];
