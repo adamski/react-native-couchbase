@@ -47,6 +47,8 @@ NSString* const ONLINE_KEY = @"couchBaseOnline";
             NSLog(@"Cannot create Manager instance");
             return self;
         }
+        [CBLManager enableLogging:@"Sync"];
+        [CBLManager enableLogging:@"CBLDatabase"];
 
 
     }
@@ -250,8 +252,10 @@ withRemotePassword: (NSString*) remotePassword
 
         pull.continuous = [RCTConvert BOOL:options[@"continuous"]] || YES;
         pull.channels = [RCTConvert NSStringArray:options[@"channels"]];
+        if (pull.channels) NSLog (@"Set replication channels: %@", pull.channels);
         pull.filter = [RCTConvert NSString:options[@"filter"]];
         pull.filterParams = [RCTConvert NSDictionary:options[@"filterParams"]];
+        if (pull.channels) NSLog (@"Set filter '%@' with params '%@'", pull.filter, pull.filterParams);
         pull.documentIDs = [RCTConvert NSStringArray:options[@"documentIDs"]];
 
         if (timeout > 0) {
@@ -482,23 +486,6 @@ RCT_EXPORT_METHOD(setTimeout: (NSInteger) newtimeout)
 {
     timeout = newtimeout;
 }
-
-RCT_EXPORT_METHOD(getDatabase: (NSString*) databaseName
-                  resolver:(RCTPromiseResolveBlock)resolve
-                  rejecter:(RCTPromiseRejectBlock)reject)
-{
-    [manager doAsync:^(void) {
-        NSError* err;
-        CBLDatabase* database = [manager existingDatabaseNamed:databaseName error:&err];
-        if (!database) {
-            reject(@"not_opened", [NSString stringWithFormat:@"Database %@: could not be opened", databaseName], err);
-        } else {
-            [databases setObject:database forKey:databaseName];
-            resolve(@{});
-        }
-    }];
-}
-
 
 RCT_EXPORT_METHOD(createDatabase: (NSString*) databaseName
                   resolver:(RCTPromiseResolveBlock)resolve
@@ -732,10 +719,11 @@ RCT_EXPORT_METHOD(getAllDocuments: (NSString*) db
 
 RCT_EXPORT_METHOD(addView: (NSString*) db
                               withName: (NSString*) name
-                              withMapFunction: (NSString*) mapFunction
+                              withView: (NSDictionary*) viewDict
                               resolver:(RCTPromiseResolveBlock)resolve
                               rejecter:(RCTPromiseRejectBlock)reject)
 {
+    NSLog(@"Add view: %@", name);
     // Create a view and register its map function
     if (![manager databaseExistsNamed: db]) {
         reject(@"not_opened", [NSString stringWithFormat:@"Database %@: could not be opened", db], nil);
@@ -745,15 +733,30 @@ RCT_EXPORT_METHOD(addView: (NSString*) db
     [manager doAsync:^(void) {
         NSError *err;
 
-        CBLRegisterJSViewCompiler();
         CBLDatabase *database = [manager existingDatabaseNamed:db error:&err];
         CBLView *view = [database viewNamed:name];
-        CBLMapBlock mapBlock = [[CBLView compiler] compileMapFunction: mapFunction
-                                            language: @"javascript"];
-        [view setMapBlock:mapBlock version:@"1"];
+
+        if (!viewDict[@"map"]) {
+            reject (@"missing_map", @"Missing map function", nil);
+            return;
+        }
+
+        NSString* mapFunction = [RCTConvert NSString:viewDict[@"map"]];
+
+        NSString* version;
+        if (viewDict[@"version"] != NULL) version = [RCTConvert NSString:viewDict[@"version"]];
+        else version = @"1";
+
+        CBLMapBlock mapBlock = [[CBLView compiler]compileMapFunction:mapFunction language:@"javascript"];
+        [view setMapBlock:mapBlock version:version];
 
         if (![database existingViewNamed:name]) {
-            reject(@"not_added", [NSString stringWithFormat:@"View %@: was not added to database", name], nil);
+            reject(@"invalid_view", [NSString stringWithFormat:@"View %@: was not added to database", name], nil);
+            return;
+        }
+
+        if ([view mapBlock] == nil) {
+            reject(@"invalid_map", @"Invalid map function", nil);
             return;
         }
     }];
@@ -820,16 +823,21 @@ RCT_EXPORT_METHOD(getView: (NSString*) db
         }
         
         CBLQuery* query = [view createQuery];
-        
+
+        NSLog(@"Limit input: %@", params[@"limit"]);
+
         NSArray* paramKeys = [params allKeys];
         if ([paramKeys containsObject:@"startkey"]) query.startKey = [params objectForKey:@"startkey"];
         if ([paramKeys containsObject:@"endkey"]) query.endKey = [params objectForKey:@"endkey"];
         if ([paramKeys containsObject:@"descending"]) query.descending = [params objectForKey:@"descending"];
-        if ([paramKeys containsObject:@"limit"]) query.limit = [params objectForKey:@"limit"];
+        if ([paramKeys containsObject:@"limit"]) query.limit = [RCTConvert NSUInteger:[params objectForKey:@"limit"]];
         if ([paramKeys containsObject:@"skip"]) query.skip = [params objectForKey:@"skip"];
         if ([paramKeys containsObject:@"group"]) query.groupLevel = [params objectForKey:@"group"];
         if (keys != nil && [keys count] > 0) query.keys = keys;
-        
+
+        if (query.limit != NULL)
+            NSLog(@"Query limit: %d", query.limit);
+
         CBLQueryEnumerator* qResults = [query run: &err];
         if (err != nil) {
             reject(@"query_error", @"The query failed", err);
@@ -839,6 +847,8 @@ RCT_EXPORT_METHOD(getView: (NSString*) db
         NSMutableArray* results = [[NSMutableArray alloc] init];
         for (CBLQueryRow* row in qResults) {
             if (row.document.properties != nil) {
+                NSLog(@"CBLQueryRow key: %@", row.key);
+                NSLog(@"CBLQueryRow document: %@", row.document);
                 NSMutableDictionary* values = [NSMutableDictionary dictionaryWithObjects: [row.document.properties allValues] forKeys:[row.document.properties allKeys]];
                 [values setValue: row.document.documentID forKey:@"_id"];
                 [results addObject: @{@"value": values,
