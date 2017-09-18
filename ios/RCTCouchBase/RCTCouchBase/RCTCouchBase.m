@@ -853,7 +853,7 @@ RCT_EXPORT_METHOD(getView: (NSString*) db
                 [values setValue: row.document.documentID forKey:@"_id"];
                 [results addObject: @{@"value": values,
                                       @"_id": row.document.documentID,
-                                      @"key": row.document.documentID,
+                                      @"key": row.key? row.key : row.document.documentID,
                                       }];
             // The reduced views have a different format.
             } else if([view reduceBlock] != nil) {
