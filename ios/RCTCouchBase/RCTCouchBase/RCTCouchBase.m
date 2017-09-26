@@ -250,13 +250,20 @@ withRemotePassword: (NSString*) remotePassword
             pull.authenticator = auth;
         }
 
-        pull.continuous = [RCTConvert BOOL:options[@"continuous"]] || YES;
-        pull.channels = [RCTConvert NSStringArray:options[@"channels"]];
-        if (pull.channels) NSLog (@"Set replication channels: %@", pull.channels);
-        pull.filter = [RCTConvert NSString:options[@"filter"]];
-        pull.filterParams = [RCTConvert NSDictionary:options[@"filterParams"]];
-        if (pull.channels) NSLog (@"Set filter '%@' with params '%@'", pull.filter, pull.filterParams);
-        pull.documentIDs = [RCTConvert NSStringArray:options[@"documentIDs"]];
+        pull.continuous = [RCTConvert BOOL:options[@"continuous"]];
+
+        if (options[@"channels"] != NULL) {
+            pull.channels = [RCTConvert NSStringArray:options[@"channels"]];
+            NSLog (@"Set replication channels: %@", pull.channels);
+        }
+        else if (options[@"filter"] != NULL) {
+            pull.filter = [RCTConvert NSString:options[@"filter"]];
+            pull.filterParams = [RCTConvert NSDictionary:options[@"filterParams"]];
+            NSLog (@"Set filter '%@' with params '%@'", pull.filter, pull.filterParams);
+        }
+        else if (options[@"documentIDs"] != NULL) {
+            pull.documentIDs = [RCTConvert NSStringArray:options[@"documentIDs"]];
+        }
 
         if (timeout > 0) {
             pull.customProperties = @{
@@ -304,14 +311,23 @@ withRemotePassword: (NSString*) remotePassword
                                    };
         [self sendEventWithName:ONLINE_KEY body:mapSuccess];
     }
-    if (repl.status == kCBLReplicationActive ||
-        (repl.completedChangesCount > 0 && repl.completedChangesCount == repl.changesCount))
+    if (repl.status == kCBLReplicationActive) // ||
+//        (repl.completedChangesCount > 0 && repl.completedChangesCount == repl.changesCount))
     {
         NSDictionary* map = @{
-                              @"databaseName": repl.localDatabase.name,
-                              @"changesCount": [NSString stringWithFormat:@"%u", repl.completedChangesCount],
-                              @"totalChanges": [NSString stringWithFormat:@"%u", repl.changesCount]
-                              };
+                @"databaseName": repl.localDatabase.name,
+                @"stopped": [NSNumber numberWithBool:false],
+                @"changesCount": [NSString stringWithFormat:@"%u", repl.completedChangesCount],
+                @"totalChanges": [NSString stringWithFormat:@"%u", repl.changesCount]
+        };
+        [self sendEventWithName:nameEvent body:map];
+    } else if(repl.status == kCBLReplicationStopped) {
+        NSDictionary* map = @{
+                @"databaseName": repl.localDatabase.name,
+                @"stopped": [NSNumber numberWithBool:true],
+                @"changesCount": [NSString stringWithFormat:@"%u", repl.completedChangesCount],
+                @"totalChanges": [NSString stringWithFormat:@"%u", repl.changesCount]
+        };
         [self sendEventWithName:nameEvent body:map];
     }
     NSError *error = repl.lastError;
@@ -826,6 +842,10 @@ RCT_EXPORT_METHOD(getView: (NSString*) db
 
         NSLog(@"Limit input: %@", params[@"limit"]);
 
+        BOOL includeDocs = true;
+        if (params[@"include_docs"] != NULL)
+            includeDocs = [RCTConvert BOOL:params[@"include_docs"]];
+
         NSArray* paramKeys = [params allKeys];
         if ([paramKeys containsObject:@"startkey"]) query.startKey = [params objectForKey:@"startkey"];
         if ([paramKeys containsObject:@"endkey"]) query.endKey = [params objectForKey:@"endkey"];
@@ -833,6 +853,7 @@ RCT_EXPORT_METHOD(getView: (NSString*) db
         if ([paramKeys containsObject:@"limit"]) query.limit = [RCTConvert NSUInteger:[params objectForKey:@"limit"]];
         if ([paramKeys containsObject:@"skip"]) query.skip = [params objectForKey:@"skip"];
         if ([paramKeys containsObject:@"group"]) query.groupLevel = [params objectForKey:@"group"];
+
         if (keys != nil && [keys count] > 0) query.keys = keys;
 
         if (query.limit != NULL)
@@ -851,7 +872,7 @@ RCT_EXPORT_METHOD(getView: (NSString*) db
                 NSLog(@"CBLQueryRow document: %@", row.document);
                 NSMutableDictionary* values = [NSMutableDictionary dictionaryWithObjects: [row.document.properties allValues] forKeys:[row.document.properties allKeys]];
                 [values setValue: row.document.documentID forKey:@"_id"];
-                [results addObject: @{@"value": values,
+                [results addObject: @{@"value": (includeDocs ? values : row.value),
                                       @"_id": row.document.documentID,
                                       @"key": row.key? row.key : row.document.documentID,
                                       }];
