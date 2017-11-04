@@ -115,9 +115,7 @@ NSString* const ONLINE_KEY = @"couchBaseOnline";
     } @catch (NSException *e) {
         NSLog(@"%@",e);
     }
-    
 }
-
 
 - (void) startSync: (NSString*) databaseLocal
      withRemoteUrl: (NSString*) remoteUrl
@@ -627,6 +625,7 @@ RCT_EXPORT_METHOD(getDocument: (NSString*) db
         return;
     }
     [manager doAsync:^(void) {
+        NSLog(@"getDocument id: @%", docId);
         NSError *err;
         
         CBLDatabase* database = [manager existingDatabaseNamed:db error:&err];
