@@ -425,6 +425,7 @@ RCT_EXPORT_METHOD(serverRemote: (NSString*) databaseLocal
     }];
 }
 
+
 RCT_EXPORT_METHOD(databaseChangeEvents: (NSString*) databaseLocal
                   resolver: (RCTPromiseResolveBlock) resolve
                   rejecter: (RCTPromiseRejectBlock) reject)
@@ -897,13 +898,32 @@ RCT_EXPORT_METHOD(getView: (NSString*) db
     }];
 }
 
-RCT_EXPORT_METHOD(installPrebuiltDatabase:(NSString *) databaseName)
+/**
+ * Install pre-built database
+ */
+RCT_EXPORT_METHOD(installPrebuiltDatabase:(NSString *) databaseName
+                              resolver:(RCTPromiseResolveBlock)resolve
+                              rejecter:(RCTPromiseRejectBlock)reject)
 {
     CBLDatabase* db = [manager existingDatabaseNamed:databaseName error:nil];
     if (db == nil) {
+        NSLog(@"Database not found, installing...");
+        NSError* err;
         NSString* dbPath = [[NSBundle mainBundle] pathForResource:databaseName ofType:@"cblite2"];
-        [manager replaceDatabaseNamed:databaseName withDatabaseDir:dbPath error:nil];
+        NSLog(@"Found database file at %@", dbPath);
+        [manager replaceDatabaseNamed:databaseName withDatabaseDir:dbPath error:&err];
+        if (err != nil)
+        {
+            reject (@"not_opened", @"Failed to install prebuilt database", err);
+            return;
+        }
+
+        resolve(@{@"installed": @YES});
+        return;
     }
+
+    NSLog(@"Database found, not installed");
+    resolve(@{@"installed": @NO});
 }
 
 @end
