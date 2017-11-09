@@ -787,14 +787,20 @@ RCT_EXPORT_METHOD(getView: (NSString*) db
                   resolver:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject)
 {
+
+    manager = [[CBLManager alloc] init]; // Test
+
     if (![manager databaseExistsNamed: db]) {
         reject(@"not_opened", [NSString stringWithFormat:@"Database %@: could not be opened", db], nil);
         return;
     }
-    [manager doAsync:^(void) {
+//    [manager doAsync:^(void) {
         NSError* err;
         NSLog(@"Getting View named %@", viewName);
-        CBLDatabase* database = [manager existingDatabaseNamed:db error:&err];
+
+        CBLDatabase* database = [databases objectForKey:viewName] == nil  ? [manager existingDatabaseNamed:db error:&err] : databases[db];
+
+        NSLog(@"Got database... now getting view");
         CBLView* view = [database existingViewNamed:viewName];
         if (view == nil || (view && [view mapBlock] == nil)) {
             if (view && [view mapBlock] == nil)
@@ -895,7 +901,7 @@ RCT_EXPORT_METHOD(getView: (NSString*) db
                       @"total_rows": [NSNumber numberWithLongLong: view.totalRows]
                       });
         }
-    }];
+//    }];
 }
 
 /**
@@ -918,10 +924,12 @@ RCT_EXPORT_METHOD(installPrebuiltDatabase:(NSString *) databaseName
             return;
         }
 
+        [databases setObject:db forKey:databaseName];
         resolve(@{@"installed": @YES});
         return;
     }
 
+    [databases setObject:db forKey:databaseName];
     NSLog(@"Database found, not installed");
     resolve(@{@"installed": @NO});
 }
