@@ -764,7 +764,19 @@ RCT_EXPORT_METHOD(addView: (NSString*) db
         else version = @"1";
 
         CBLMapBlock mapBlock = [[CBLView compiler]compileMapFunction:mapFunction language:@"javascript"];
-        [view setMapBlock:mapBlock version:version];
+
+        if (viewDict[@"reduce"]) {
+            NSString* reduceFunction = [RCTConvert NSString:viewDict[@"reduce"]];
+            CBLReduceBlock reduceBlock = [[CBLView compiler]compileReduceFunction:reduceFunction language:@"javascript"];
+            [view setMapBlock:mapBlock reduceBlock:reduceBlock version:version];
+
+            if ([view reduceBlock] == nil) {
+                reject(@"invalid_reduce", @"Invalid reduce function", nil);
+                return;
+            }
+        } else {
+            [view setMapBlock:mapBlock version:version];
+        }
 
         if (![database existingViewNamed:name]) {
             reject(@"invalid_view", [NSString stringWithFormat:@"View %@: was not added to database", name], nil);
@@ -775,6 +787,7 @@ RCT_EXPORT_METHOD(addView: (NSString*) db
             reject(@"invalid_map", @"Invalid map function", nil);
             return;
         }
+
     }];
 }
 
