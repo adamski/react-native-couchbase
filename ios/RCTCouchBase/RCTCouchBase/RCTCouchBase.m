@@ -806,7 +806,7 @@ RCT_EXPORT_METHOD(getView: (NSString*) db
     }
     [manager doAsync:^(void) {
         NSError* err;
-        NSLog(@"Getting View named %@", viewName);
+        //NSLog(@"Getting View named %@", viewName);
         CBLDatabase* database = [manager existingDatabaseNamed:db error:&err];
         CBLView* view = [database existingViewNamed:viewName];
         if (view == nil || (view && [view mapBlock] == nil)) {
