@@ -816,6 +816,8 @@ RCT_EXPORT_METHOD(getView: (NSString*) db
             }
             
             NSDictionary* viewDefinition = [views objectForKey:viewName];
+            NSLog(@"viewDefinition: %@", viewDefinition.debugDescription);
+
             CBLMapBlock mapBlock = [[CBLView compiler]compileMapFunction:[viewDefinition objectForKey:@"map"] language:@"javascript"];
             NSString* version = [viewDefinition objectForKey:@"version"];
             
@@ -831,6 +833,7 @@ RCT_EXPORT_METHOD(getView: (NSString*) db
                     return;
                 }
                 [view setMapBlock:mapBlock reduceBlock:reduceBlock version: version != nil ? [NSString stringWithString: version] : @"1.1"];
+                NSLog(@"reduce function set: %@ / %@", [viewDefinition objectForKey:@"reduce"], [reduceBlock debugDescription]);
             } else {
                 [view setMapBlock:mapBlock version: version != nil ? [NSString stringWithString: version] : @"1.1"];
             }
@@ -845,6 +848,13 @@ RCT_EXPORT_METHOD(getView: (NSString*) db
         BOOL includeDocs = true;
         if (params[@"include_docs"] != NULL)
             includeDocs = [RCTConvert BOOL:params[@"include_docs"]];
+
+        // Temp hack until reduce function works
+        BOOL countOnly = false;
+        if (params[@"count_only"] != NULL)
+            countOnly = [RCTConvert BOOL:params[@"count_only"]];
+        // End temp hack
+
 
         NSArray* paramKeys = [params allKeys];
         if ([paramKeys containsObject:@"startkey"]) query.startKey = [params objectForKey:@"startkey"];
@@ -864,10 +874,19 @@ RCT_EXPORT_METHOD(getView: (NSString*) db
             reject(@"query_error", @"The query failed", err);
             return;
         }
-        
+
+        if (countOnly)
+        {
+            resolve(@{
+                            @"offset": [NSNumber numberWithUnsignedInteger: query.skip ? query.skip : 0],
+                            @"total_rows": [NSNumber numberWithLongLong: qResults.count]
+                    });
+            return;
+        }
+
         NSMutableArray* results = [[NSMutableArray alloc] init];
         for (CBLQueryRow* row in qResults) {
-            if (row.document.properties != nil) {
+            if (row.document.properties != nil && [view reduceBlock] == nil) {
                 NSLog(@"CBLQueryRow key: %@", row.key);
                 NSLog(@"CBLQueryRow document: %@", row.document);
                 NSMutableDictionary* values = [NSMutableDictionary dictionaryWithObjects: [row.document.properties allValues] forKeys:[row.document.properties allKeys]];
@@ -886,13 +905,13 @@ RCT_EXPORT_METHOD(getView: (NSString*) db
         if ([paramKeys containsObject:@"update_seq"] && [[params objectForKey:@"update_seq"]  isEqual: @YES]) {
             resolve(@{@"rows": results,
                       @"offset": [NSNumber numberWithUnsignedInteger: query.skip ? query.skip : 0],
-                      @"total_rows": [NSNumber numberWithLongLong: view.totalRows],
+                      @"total_rows": [NSNumber numberWithLongLong: qResults.count],
                       @"update_seq": [NSNumber numberWithLongLong:qResults.sequenceNumber]
                       });
         } else {
             resolve(@{@"rows": results,
                       @"offset": [NSNumber numberWithUnsignedInteger: query.skip ? query.skip : 0],
-                      @"total_rows": [NSNumber numberWithLongLong: view.totalRows]
+                      @"total_rows": [NSNumber numberWithLongLong: qResults.count]
                       });
         }
     }];
