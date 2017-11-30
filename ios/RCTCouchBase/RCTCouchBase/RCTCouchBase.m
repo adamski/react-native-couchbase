@@ -899,13 +899,13 @@ RCT_EXPORT_METHOD(getView: (NSString*) db
         if ([paramKeys containsObject:@"update_seq"] && [[params objectForKey:@"update_seq"]  isEqual: @YES]) {
             resolve(@{@"rows": results,
                       @"offset": [NSNumber numberWithUnsignedInteger: query.skip ? query.skip : 0],
-                      @"total_rows": [NSNumber numberWithLongLong: view.totalRows],
-                      @"update_seq": [NSNumber numberWithLongLong:qResults.sequenceNumber]
+                      @"total_rows": [NSNumber numberWithLongLong: qResults.count],
+                      @"update_seq": [NSNumber numberWithLongLong: qResults.sequenceNumber]
                       });
         } else {
             resolve(@{@"rows": results,
                       @"offset": [NSNumber numberWithUnsignedInteger: query.skip ? query.skip : 0],
-                      @"total_rows": [NSNumber numberWithLongLong: view.totalRows]
+                      @"total_rows": [NSNumber numberWithLongLong: qResults.count]
                       });
         }
     }];
