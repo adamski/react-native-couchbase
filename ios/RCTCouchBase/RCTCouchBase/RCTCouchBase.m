@@ -860,12 +860,12 @@ RCT_EXPORT_METHOD(getView: (NSString*) db
             includeDocs = [RCTConvert BOOL:params[@"include_docs"]];
 
         NSArray* paramKeys = [params allKeys];
-        if ([paramKeys containsObject:@"startkey"]) query.startKey = [params objectForKey:@"startkey"];
-        if ([paramKeys containsObject:@"endkey"]) query.endKey = [params objectForKey:@"endkey"];
-        if ([paramKeys containsObject:@"descending"]) query.descending = [params objectForKey:@"descending"];
-        if ([paramKeys containsObject:@"limit"]) query.limit = [RCTConvert NSUInteger:[params objectForKey:@"limit"]];
-        if ([paramKeys containsObject:@"skip"]) query.skip = [params objectForKey:@"skip"];
-        if ([paramKeys containsObject:@"group"]) query.groupLevel = [params objectForKey:@"group"];
+        if ([paramKeys containsObject:@"startkey"]) query.startKey = params[@"startkey"];
+        if ([paramKeys containsObject:@"endkey"]) query.endKey = params[@"endkey"];
+        if ([paramKeys containsObject:@"descending"]) query.descending = [RCTConvert BOOL:params[@"descending"]];
+        if ([paramKeys containsObject:@"limit"]) query.limit = [RCTConvert NSUInteger:params[@"limit"]];
+        if ([paramKeys containsObject:@"skip"]) query.skip = [RCTConvert NSUInteger:params[@"skip"]];
+        if ([paramKeys containsObject:@"group"]) query.groupLevel = [RCTConvert NSUInteger:params[@"group"]];
 
         if (keys != nil && [keys count] > 0) query.keys = keys;
 
