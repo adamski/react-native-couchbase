@@ -47,8 +47,8 @@ NSString* const ONLINE_KEY = @"couchBaseOnline";
             NSLog(@"Cannot create Manager instance");
             return self;
         }
-        [CBLManager enableLogging:@"Sync"];
-        [CBLManager enableLogging:@"CBLDatabase"];
+        //[CBLManager enableLogging:@"Sync"];
+        //[CBLManager enableLogging:@"CBLDatabase"];
 
 
     }
@@ -350,9 +350,9 @@ RCT_EXPORT_METHOD(serverManager: (RCTResponseSenderBlock) onEnd)
 
     NSLog (@"Default directory for CBLManager: %@", [CBLManager defaultDirectory]);
 
-    [CBLManager enableLogging:@"Database"];
-    [CBLManager enableLogging:@"Router"];
-    [CBLManager enableLogging:@"Listener"];
+    //[CBLManager enableLogging:@"Database"];
+    //[CBLManager enableLogging:@"Router"];
+    //[CBLManager enableLogging:@"Listener"];
 
     // Callback handler
     if (onEnd != nil) {
