@@ -18,6 +18,8 @@
     NSMutableDictionary* pulls;
     NSMutableDictionary* pushes;
     NSInteger timeout;
+    NSInteger skipReplicationEvents;
+    NSInteger skippedEvents;
 }
 
 @end

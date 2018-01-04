@@ -43,6 +43,8 @@ NSString* const ONLINE_KEY = @"couchBaseOnline";
         pulls = [[NSMutableDictionary alloc] init];
         pushes = [[NSMutableDictionary alloc] init];
         timeout = 0;
+        skippedEvents = 0;
+        skipReplicationEvents = 0;
         if (!manager) {
             NSLog(@"Cannot create Manager instance");
             return self;
@@ -312,13 +314,23 @@ withRemotePassword: (NSString*) remotePassword
     if (repl.status == kCBLReplicationActive) // ||
 //        (repl.completedChangesCount > 0 && repl.completedChangesCount == repl.changesCount))
     {
-        NSDictionary* map = @{
-                @"databaseName": repl.localDatabase.name,
-                @"stopped": [NSNumber numberWithBool:false],
-                @"changesCount": [NSString stringWithFormat:@"%u", repl.completedChangesCount],
-                @"totalChanges": [NSString stringWithFormat:@"%u", repl.changesCount]
-        };
-        [self sendEventWithName:nameEvent body:map];
+        if (skippedEvents == 0 ||
+                (repl.completedChangesCount > 0
+                        && repl.completedChangesCount >= repl.changesCount - (repl.completedChangesCount/1000)))
+        {
+            NSDictionary* map = @{
+                    @"databaseName": repl.localDatabase.name,
+                    @"stopped": [NSNumber numberWithBool:false],
+                    @"changesCount": [NSString stringWithFormat:@"%u", repl.completedChangesCount],
+                    @"totalChanges": [NSString stringWithFormat:@"%u", repl.changesCount]
+            };
+            [self sendEventWithName:nameEvent body:map];
+        }
+        if (skipReplicationEvents > 0)
+        {
+            skippedEvents = (skippedEvents + 1) % skipReplicationEvents;
+        }
+
     } else if(repl.status == kCBLReplicationStopped) {
         NSDictionary* map = @{
                 @"databaseName": repl.localDatabase.name,
@@ -331,24 +343,29 @@ withRemotePassword: (NSString*) remotePassword
     NSError *error = repl.lastError;
     if (error != nil && error.code == 401) {
         NSDictionary* mapError = @{
-                                   @"databaseName": repl.localDatabase.name,
-                                   };
+                @"databaseName": repl.localDatabase.name,
+        };
         [self sendEventWithName:AUTH_ERROR body:mapError];
     } else if (error != nil && error.code == 404) {
         NSDictionary* mapError = @{
-                                   @"databaseName": repl.localDatabase.name,
-                                   };
+                @"databaseName": repl.localDatabase.name,
+        };
         [self sendEventWithName:NOT_FOUND body:mapError];
     }
 }
 
-RCT_EXPORT_METHOD(serverManager: (RCTResponseSenderBlock) onEnd)
+RCT_EXPORT_METHOD(serverManager: (NSDictionary*) options
+                   withCallback: (RCTResponseSenderBlock) onEnd)
 {
     if (!manager) {
         NSLog(@"Couchbase manager does not exist.");
     }
 
     NSLog (@"Default directory for CBLManager: %@", [CBLManager defaultDirectory]);
+
+    if (options && options[@"skipReplicationEvents"] != NULL) {
+        skipReplicationEvents = [RCTConvert NSInteger:options[@"skipReplicationEvents"]];
+    }
 
     //[CBLManager enableLogging:@"Database"];
     //[CBLManager enableLogging:@"Router"];
@@ -361,9 +378,9 @@ RCT_EXPORT_METHOD(serverManager: (RCTResponseSenderBlock) onEnd)
 }
 
 RCT_EXPORT_METHOD(serverLocal: (int) listenPort
-                  withUserLocal: (NSString*) userLocal
-                  withPasswordLocal: (NSString*) passwordLocal
-                  withCallback: (RCTResponseSenderBlock) onEnd)
+                              withUserLocal: (NSString*) userLocal
+                              withPasswordLocal: (NSString*) passwordLocal
+                              withCallback: (RCTResponseSenderBlock) onEnd)
 {
     // Init server.
     [self startServer: listenPort
@@ -374,21 +391,21 @@ RCT_EXPORT_METHOD(serverLocal: (int) listenPort
 
 
 RCT_EXPORT_METHOD(serverLocalRemote: (int) listenPort
-                  withUserLocal: (NSString*) userLocal
-                  withPasswordLocal: (NSString*) passwordLocal
-                  withDatabaseLocal: (NSString*) databaseLocal
-                  withRemoteUrl: (NSString*) remoteUrl
-                  withRemoteUser: (NSString*) remoteUser
-                  withRemotePassword: (NSString*) remotePassword
-                  withEvents: (BOOL) events
-                  withCallback: (RCTResponseSenderBlock) onEnd)
+                              withUserLocal: (NSString*) userLocal
+                              withPasswordLocal: (NSString*) passwordLocal
+                              withDatabaseLocal: (NSString*) databaseLocal
+                              withRemoteUrl: (NSString*) remoteUrl
+                              withRemoteUser: (NSString*) remoteUser
+                              withRemotePassword: (NSString*) remotePassword
+                              withEvents: (BOOL) events
+                              withCallback: (RCTResponseSenderBlock) onEnd)
 {
     // Init the server.
     [self startServer:listenPort
              withUser:userLocal
          withPassword:passwordLocal
          withCallback:onEnd];
-    
+
     [manager doAsync:^(void) {
         NSError* err;
         CBLDatabase* database = [manager databaseNamed:databaseLocal error:&err];
@@ -408,43 +425,43 @@ RCT_EXPORT_METHOD(serverLocalRemote: (int) listenPort
 }
 
 RCT_EXPORT_METHOD(serverRemote: (NSString*) databaseLocal
-                  withRemoteUrl: (NSString*) remoteUrl
-                  withRemoteUser: (NSString*) remoteUser
-                  withRemotePassword: (NSString*) remotePassword
-                  withEvents: (BOOL) events
-                  withCallback: (RCTResponseSenderBlock) onEnd)
+                              withRemoteUrl: (NSString*) remoteUrl
+                              withRemoteUser: (NSString*) remoteUser
+                              withRemotePassword: (NSString*) remotePassword
+                              withEvents: (BOOL) events
+                              withCallback: (RCTResponseSenderBlock) onEnd)
 {
     [manager doAsync:^(void) {
         // Init sync.
         [self startSync:databaseLocal
-              withRemoteUrl:remoteUrl
-             withRemoteUser:remoteUser
-         withRemotePassword:remotePassword
-                 withEvents:events
-               withCallback:onEnd];
+          withRemoteUrl:remoteUrl
+         withRemoteUser:remoteUser
+     withRemotePassword:remotePassword
+             withEvents:events
+           withCallback:onEnd];
     }];
 }
 
 
 RCT_EXPORT_METHOD(databaseChangeEvents: (NSString*) databaseLocal
-                  resolver: (RCTPromiseResolveBlock) resolve
-                  rejecter: (RCTPromiseRejectBlock) reject)
+                              resolver: (RCTPromiseResolveBlock) resolve
+                              rejecter: (RCTPromiseRejectBlock) reject)
 {
     [manager doAsync:^(void) {
         // Init sync.
         [self startDatabaseChangeEvents:databaseLocal
-                          resolver:resolve
-                          rejecter:reject];
+                               resolver:resolve
+                               rejecter:reject];
     }];
 }
 
 RCT_EXPORT_METHOD(serverRemotePush: (NSString*) databaseLocal
-                  withRemoteUrl: (NSString*) remoteUrl
-                  withRemoteUser: (NSString*) remoteUser
-                  withRemotePassword: (NSString*) remotePassword
-                  withEvents: (BOOL) events
-                  resolver: (RCTPromiseResolveBlock) resolve
-                  rejecter: (RCTPromiseRejectBlock) reject)
+                              withRemoteUrl: (NSString*) remoteUrl
+                              withRemoteUser: (NSString*) remoteUser
+                              withRemotePassword: (NSString*) remotePassword
+                              withEvents: (BOOL) events
+                              resolver: (RCTPromiseResolveBlock) resolve
+                              rejecter: (RCTPromiseRejectBlock) reject)
 {
     [manager doAsync:^(void) {
         // Init sync.
@@ -459,13 +476,13 @@ RCT_EXPORT_METHOD(serverRemotePush: (NSString*) databaseLocal
 }
 
 RCT_EXPORT_METHOD(serverRemotePull: (NSString*) databaseLocal
-                  withRemoteUrl: (NSString*) remoteUrl
-                  withRemoteUser: (NSString*) remoteUser
-                  withRemotePassword: (NSString*) remotePassword
-                  withEvents: (BOOL) events
-                  withOptions: (NSDictionary*) options
-                  resolver: (RCTPromiseResolveBlock) resolve
-                  rejecter: (RCTPromiseRejectBlock) reject)
+                              withRemoteUrl: (NSString*) remoteUrl
+                              withRemoteUser: (NSString*) remoteUser
+                              withRemotePassword: (NSString*) remotePassword
+                              withEvents: (BOOL) events
+                              withOptions: (NSDictionary*) options
+                              resolver: (RCTPromiseResolveBlock) resolve
+                              rejecter: (RCTPromiseRejectBlock) reject)
 {
 
     [manager doAsync:^(void) {
@@ -503,8 +520,8 @@ RCT_EXPORT_METHOD(setTimeout: (NSInteger) newtimeout)
 }
 
 RCT_EXPORT_METHOD(createDatabase: (NSString*) databaseName
-                  resolver:(RCTPromiseResolveBlock)resolve
-                  rejecter:(RCTPromiseRejectBlock)reject)
+                              resolver:(RCTPromiseResolveBlock)resolve
+                              rejecter:(RCTPromiseRejectBlock)reject)
 {
     [manager doAsync:^(void) {
         NSError* err;
@@ -519,8 +536,8 @@ RCT_EXPORT_METHOD(createDatabase: (NSString*) databaseName
 }
 
 RCT_EXPORT_METHOD(destroyDatabase: (NSString*) databaseName
-                  resolver:(RCTPromiseResolveBlock)resolve
-                  rejecter:(RCTPromiseRejectBlock)reject)
+                              resolver:(RCTPromiseResolveBlock)resolve
+                              rejecter:(RCTPromiseRejectBlock)reject)
 {
     __block NSError* err;
     if (![manager databaseExistsNamed:databaseName]) {
@@ -530,7 +547,7 @@ RCT_EXPORT_METHOD(destroyDatabase: (NSString*) databaseName
         [databases removeObjectForKey:databaseName];
         [pushes removeObjectForKey:databaseName];
         [pulls removeObjectForKey:databaseName];
-        
+
         [manager doAsync:^(void) {
             CBLDatabase* database = [manager existingDatabaseNamed:databaseName error:nil];
             bool deleted = [database deleteDatabase:&err];
@@ -567,15 +584,15 @@ RCT_EXPORT_METHOD(closeDatabase: (NSString*) databaseName withCallback: (RCTResp
                 onEnd(@[[NSNull null], cb]);
             }
         }];
-        
+
     }
 }
 
 RCT_EXPORT_METHOD(putDocument: (NSString*) db
-                  withId:(NSString*) docId
-                  withObject:(NSDictionary*) dict
-                  resolver:(RCTPromiseResolveBlock)resolve
-                  rejecter:(RCTPromiseRejectBlock)reject)
+                              withId:(NSString*) docId
+                              withObject:(NSDictionary*) dict
+                              resolver:(RCTPromiseResolveBlock)resolve
+                              rejecter:(RCTPromiseRejectBlock)reject)
 {
     if (![manager databaseExistsNamed: db]) {
         reject(@"not_opened", [NSString stringWithFormat:@"Database %@: could not be opened", db], nil);
@@ -583,7 +600,7 @@ RCT_EXPORT_METHOD(putDocument: (NSString*) db
     }
     [manager doAsync:^(void) {
         NSError* err;
-        
+
         CBLDatabase* database = [manager existingDatabaseNamed:db error:&err];
         // We need to check if it is a _local document or a normal document.
         NSRegularExpression* regex = [NSRegularExpression regularExpressionWithPattern:@"^_local\/(.+)"
@@ -617,7 +634,7 @@ RCT_EXPORT_METHOD(putDocument: (NSString*) db
 }
 
 RCT_EXPORT_METHOD(getDocument: (NSString*) db
-                  withId:(NSString*) docId
+                          withId:(NSString*) docId
                   resolver:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject)
 {
