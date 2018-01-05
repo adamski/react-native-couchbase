@@ -311,12 +311,9 @@ withRemotePassword: (NSString*) remotePassword
                                    };
         [self sendEventWithName:ONLINE_KEY body:mapSuccess];
     }
-    if (repl.status == kCBLReplicationActive) // ||
-//        (repl.completedChangesCount > 0 && repl.completedChangesCount == repl.changesCount))
+    if (repl.status == kCBLReplicationActive) 
     {
-        if (skippedEvents == 0 ||
-                (repl.completedChangesCount > 0
-                        && repl.completedChangesCount >= repl.changesCount - (repl.completedChangesCount/1000)))
+        if (skippedEvents == 0 || (repl.completedChangesCount == repl.changesCount))
         {
             NSDictionary* map = @{
                     @"databaseName": repl.localDatabase.name,
