@@ -671,6 +671,30 @@ RCT_EXPORT_METHOD(getDocument: (NSString*) db
     }];
 }
 
+RCT_EXPORT_METHOD(deleteDocument: (NSString*) db
+                  withId:(NSString*) docId
+                  resolver:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject)
+{
+    if (![manager databaseExistsNamed: db]) {
+        reject(@"not_opened", [NSString stringWithFormat:@"Database %@: could not be opened", db], nil);
+        return;
+    }
+    [manager doAsync:^(void) {
+        NSError* err;
+        
+        CBLDatabase* database = [manager existingDatabaseNamed:db error:&err];
+        
+        NSError* delError;
+        CBLDocument* doc = [database existingDocumentWithID:docId];
+        if (doc != nil && [doc deleteDocument:&delError]) {
+            resolve(doc.properties);
+        } else {
+            reject(@"not_deleted", [NSString stringWithFormat:@"document not deleted %@", docId], delError);
+        }
+        
+    }];
+}
 
 RCT_EXPORT_METHOD(getAllDocuments: (NSString*) db
                   withIds:(nullable NSArray*) ids
