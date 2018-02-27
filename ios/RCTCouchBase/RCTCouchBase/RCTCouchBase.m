@@ -272,7 +272,8 @@ withRemotePassword: (NSString*) remotePassword
         }
         [pulls  setObject:pull forKey:databaseLocal];
         // Add the events handler.
-        if ([RCTConvert BOOL:options[@"events"]]) {
+        // TODO: Put "withEvents" into constant for reuse
+        if ([RCTConvert BOOL:options[@"withEvents"]]) {
             [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(handleReplicationEvent:) name:kCBLReplicationChangeNotification object:pull];
         }
         

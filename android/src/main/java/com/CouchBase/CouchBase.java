@@ -492,7 +492,8 @@ public class CouchBase extends ReactContextBaseJavaModule {
             Authenticator basicAuthenticator = AuthenticatorFactory.createBasicAuthenticator(remoteUser, remotePassword);
             pull.setAuthenticator(basicAuthenticator);
 
-            if (options.hasKey("events") && options.getBoolean("events") == true) {
+            // TODO: Put "withEvents" into constant for reuse
+            if (options.hasKey("withEvents") && options.getBoolean("withEvents")) {
                 pull.addChangeListener(new Replication.ChangeListener() {
                     @Override
                     public void changed(Replication.ChangeEvent event) {
