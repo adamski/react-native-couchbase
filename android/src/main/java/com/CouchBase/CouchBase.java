@@ -469,12 +469,12 @@ public class CouchBase extends ReactContextBaseJavaModule {
      * @param  remoteURL        String      URL to remote couchbase
      * @param  remoteUser       String      user for remote server
      * @param  remotePassword   String      password for remote server
-     * @param  events           Boolean     activate the events for pull
+     * @param  options          ReadableMap replication options
      * @param  promise          Promise     Promise to be returned to the JavaScript engine.
      */
     @ReactMethod
     public void serverRemotePull(String databaseLocal, String remoteURL, String  remoteUser,
-                                  String remotePassword, Boolean events, Promise promise) {
+                                  String remotePassword, ReadableMap options, Promise promise) {
 
         Manager ss = this.managerServer;
 
@@ -492,7 +492,7 @@ public class CouchBase extends ReactContextBaseJavaModule {
             Authenticator basicAuthenticator = AuthenticatorFactory.createBasicAuthenticator(remoteUser, remotePassword);
             pull.setAuthenticator(basicAuthenticator);
 
-            if (events) {
+            if (options.hasKey("events") && options.getBoolean("events") == true) {
                 pull.addChangeListener(new Replication.ChangeListener() {
                     @Override
                     public void changed(Replication.ChangeEvent event) {
@@ -547,7 +547,7 @@ public class CouchBase extends ReactContextBaseJavaModule {
      * @param  remoteURL        String      URL to remote couchbase
      * @param  remoteUser       String      user for remote server
      * @param  remotePassword   String      password for remote server
-     * @param  events           Boolean     activate the events for push
+     * @param  events           Boolean     activate the events for push // TODO: Convert to options
      * @param  promise          Promise     Promise to be returned to the JavaScript engine.
      */
     @ReactMethod

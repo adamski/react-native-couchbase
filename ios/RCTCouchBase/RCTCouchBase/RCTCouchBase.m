@@ -123,7 +123,7 @@ NSString* const ONLINE_KEY = @"couchBaseOnline";
      withRemoteUrl: (NSString*) remoteUrl
     withRemoteUser: (NSString*) remoteUser
 withRemotePassword: (NSString*) remotePassword
-        withEvents: (BOOL) events
+        withEvents: (BOOL) events // TODO: Convert to options
       withCallback: (RCTResponseSenderBlock) onEnd
 {
     CBLDatabase* db = [manager existingDatabaseNamed:databaseLocal error:nil];
@@ -191,7 +191,7 @@ withRemotePassword: (NSString*) remotePassword
      withRemoteUrl: (NSString*) remoteUrl
     withRemoteUser: (NSString*) remoteUser
 withRemotePassword: (NSString*) remotePassword
-        withEvents: (BOOL) events
+        withEvents: (BOOL) events // TODO: Convert to options
           resolver: (RCTPromiseResolveBlock) resolve
           rejecter: (RCTPromiseRejectBlock) reject
 {
@@ -230,7 +230,6 @@ withRemotePassword: (NSString*) remotePassword
      withRemoteUrl: (NSString*) remoteUrl
     withRemoteUser: (NSString*) remoteUser
 withRemotePassword: (NSString*) remotePassword
-        withEvents: (BOOL) events
         withOptions: (NSDictionary*) options
           resolver: (RCTPromiseResolveBlock) resolve
           rejecter: (RCTPromiseRejectBlock) reject
@@ -273,7 +272,7 @@ withRemotePassword: (NSString*) remotePassword
         }
         [pulls  setObject:pull forKey:databaseLocal];
         // Add the events handler.
-        if (events) {
+        if ([RCTConvert BOOL:options[@"events"]]) {
             [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(handleReplicationEvent:) name:kCBLReplicationChangeNotification object:pull];
         }
         
@@ -466,7 +465,7 @@ RCT_EXPORT_METHOD(serverRemotePush: (NSString*) databaseLocal
           withRemoteUrl:remoteUrl
          withRemoteUser:remoteUser
      withRemotePassword:remotePassword
-             withEvents:events
+             withEvents:events // TODO: Convert to options
                resolver:resolve
                rejecter:reject];
     }];
@@ -476,7 +475,6 @@ RCT_EXPORT_METHOD(serverRemotePull: (NSString*) databaseLocal
                               withRemoteUrl: (NSString*) remoteUrl
                               withRemoteUser: (NSString*) remoteUser
                               withRemotePassword: (NSString*) remotePassword
-                              withEvents: (BOOL) events
                               withOptions: (NSDictionary*) options
                               resolver: (RCTPromiseResolveBlock) resolve
                               rejecter: (RCTPromiseRejectBlock) reject)
@@ -488,7 +486,6 @@ RCT_EXPORT_METHOD(serverRemotePull: (NSString*) databaseLocal
           withRemoteUrl:remoteUrl
          withRemoteUser:remoteUser
      withRemotePassword:remotePassword
-             withEvents:events
             withOptions:options
                resolver:resolve
                rejecter:reject];
