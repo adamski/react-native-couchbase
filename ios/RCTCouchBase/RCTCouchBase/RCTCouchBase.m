@@ -671,30 +671,6 @@ RCT_EXPORT_METHOD(getDocument: (NSString*) db
     }];
 }
 
-RCT_EXPORT_METHOD(deleteDocument: (NSString*) db
-                  withId:(NSString*) docId
-                  resolver:(RCTPromiseResolveBlock)resolve
-                  rejecter:(RCTPromiseRejectBlock)reject)
-{
-    if (![manager databaseExistsNamed: db]) {
-        reject(@"not_opened", [NSString stringWithFormat:@"Database %@: could not be opened", db], nil);
-        return;
-    }
-    [manager doAsync:^(void) {
-        NSError* err;
-        
-        CBLDatabase* database = [manager existingDatabaseNamed:db error:&err];
-        
-        NSError* delError;
-        CBLDocument* doc = [database existingDocumentWithID:docId];
-        if (doc != nil && [doc deleteDocument:&delError]) {
-            resolve(doc.properties);
-        } else {
-            reject(@"not_deleted", [NSString stringWithFormat:@"document not deleted %@", docId], delError);
-        }
-        
-    }];
-}
 
 RCT_EXPORT_METHOD(getAllDocuments: (NSString*) db
                   withIds:(nullable NSArray*) ids
@@ -784,16 +760,16 @@ RCT_EXPORT_METHOD(addView: (NSString*) db
         return;
     }
 
+    if (!viewDict[@"map"]) {
+        reject (@"missing_map", @"Missing map function", nil);
+        return;
+    }
+
     [manager doAsync:^(void) {
         NSError *err;
 
         CBLDatabase *database = [manager existingDatabaseNamed:db error:&err];
         CBLView *view = [database viewNamed:name];
-
-        if (!viewDict[@"map"]) {
-            reject (@"missing_map", @"Missing map function", nil);
-            return;
-        }
 
         NSString* mapFunction = [RCTConvert NSString:viewDict[@"map"]];
 
@@ -829,7 +805,6 @@ RCT_EXPORT_METHOD(addView: (NSString*) db
     }];
 }
 
-
 RCT_EXPORT_METHOD(getView: (NSString*) db
                   withDesign: (NSString*) design
                   withView: (NSString*) viewName
@@ -853,7 +828,7 @@ RCT_EXPORT_METHOD(getView: (NSString*) db
             else NSLog(@"View %@ nil", viewName);
 
             view = [database viewNamed:viewName];
-            
+
             CBLDocument* viewsDoc = [database existingDocumentWithID:[NSString stringWithFormat:@"_design/%@", design]];
             if (viewsDoc == nil || viewsDoc.properties == nil || [viewsDoc.properties objectForKey:@"views"] == nil) {
                 reject(@"not_found", [NSString stringWithFormat:@"Database %@: design file could not be opened", db], nil);
@@ -891,7 +866,7 @@ RCT_EXPORT_METHOD(getView: (NSString*) db
         
         CBLQuery* query = [view createQuery];
 
-        NSLog(@"Limit input: %@", params[@"limit"]);
+        //NSLog(@"Limit input: %@", params[@"limit"]);
 
         BOOL includeDocs = true;
         if (params[@"include_docs"] != NULL)
@@ -907,8 +882,8 @@ RCT_EXPORT_METHOD(getView: (NSString*) db
 
         if (keys != nil && [keys count] > 0) query.keys = keys;
 
-        if (query.limit != NULL)
-            NSLog(@"Query limit: %d", query.limit);
+        //if (query.limit != NULL)
+        //    NSLog(@"Query limit: %d", query.limit);
 
         CBLQueryEnumerator* qResults = [query run: &err];
         if (err != nil) {
