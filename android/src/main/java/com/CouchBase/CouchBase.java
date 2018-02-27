@@ -65,6 +65,8 @@ public class CouchBase extends ReactContextBaseJavaModule {
     private Manager managerServer;
     private boolean initFailed = false;
     private int listenPort;
+    private int skipReplicationEvents = 0;
+    private int skippedEvents = 0;
     protected Boolean isDebug = false;
 
     private static final String PUSH_EVENT_KEY = "couchBasePushEvent";
@@ -119,9 +121,13 @@ public class CouchBase extends ReactContextBaseJavaModule {
      * @param  onEnd            Callback    function to call when finish
      */
     @ReactMethod
-    public void serverManager(Callback onEnd) {
+    public void serverManager(ReadableMap options, Callback onEnd) {
         try {
             this.managerServer = startCBLite();
+
+            if (options.hasKey("skipReplicationEvents")) {
+                skipReplicationEvents = options.getInt("skipReplicationEvents");
+            }
 
             if(onEnd != null)
                 onEnd.invoke();
@@ -251,11 +257,20 @@ public class CouchBase extends ReactContextBaseJavaModule {
                                 }
                             }
                         } else {
-                            WritableMap eventM = Arguments.createMap();
-                            eventM.putString("databaseName", event.getSource().getLocalDatabase().getName());
-                            eventM.putString("changesCount", String.valueOf(event.getSource().getCompletedChangesCount()));
-                            eventM.putString("totalChanges", String.valueOf(event.getSource().getChangesCount()));
-                            sendEvent(context, PULL_EVENT_KEY, eventM);
+
+                            if (skippedEvents == 0 ||
+                                    (event.getSource().getCompletedChangesCount() == event.getSource().getChangesCount())) {
+
+                                WritableMap eventM = Arguments.createMap();
+                                eventM.putString("databaseName", event.getSource().getLocalDatabase().getName());
+                                eventM.putString("changesCount", String.valueOf(event.getSource().getCompletedChangesCount()));
+                                eventM.putString("totalChanges", String.valueOf(event.getSource().getChangesCount()));
+                                sendEvent(context, PULL_EVENT_KEY, eventM);
+                            }
+
+                            if (skipReplicationEvents > 0) {
+                                skippedEvents = (skippedEvents + 1) % skipReplicationEvents;
+                            }
                         }
                     }
                 });
@@ -1153,28 +1168,4 @@ public class CouchBase extends ReactContextBaseJavaModule {
             promise.reject("NOT_OPENED", e);
         }
     }
-
-    /*
-    @ReactMethod
-    public void installPrebuiltDatabase(String name) {
-        Manager ss = null;
-        Database db = null;
-        try {
-            ss = this.managerServer;
-            db = manager.getExistingDatabase(name);
-        } catch (IOException e) {
-            e.printStackTrace();
-        } catch (CouchbaseLiteException e) {
-            e.printStackTrace();
-        }
-        if (db == null) {
-            try {
-                ZipUtils.unzip(this.context.getAssets().open(name + ".zip"), ss.getContext().getFilesDir());
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-
-    }
-    */
 }
