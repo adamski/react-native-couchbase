@@ -49,6 +49,7 @@ import com.couchbase.lite.internal.RevisionInternal;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.FormatFlagsConversionMismatchException;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -990,6 +991,68 @@ public class CouchBase extends ReactContextBaseJavaModule {
     }
 
     /**
+     * Add a new view to the local database
+     * @param database String Database name.
+     * @param viewName String Name of the view to be added.
+     * @param viewMap ReadableMap View document.
+     * @param promise Promise Promise to be returned to the JavaScript engine.
+     */
+    @ReactMethod
+    public void addView(String database, String viewName, ReadableMap viewMap, Promise promise) {
+
+        if (!viewMap.hasKey("map")) {
+            promise.reject("MISSING_MAP", "Missing map function");
+            return;
+        }
+
+        Manager ss = managerServer;
+        Database db = null;
+        View view = null;
+        try {
+            db = ss.getExistingDatabase(database);
+
+            view = db.getView(viewName);
+            String mapFunction = viewMap.getString("map");
+
+            String version;
+            if (viewMap.hasKey("version")) version = viewMap.getString("version");
+            else version = "1";
+
+            Mapper mapBlock = View.getCompiler().compileMap(mapFunction, "javascript");
+
+            if (viewMap.hasKey("reduce")) {
+                String reduceFunction = viewMap.getString("reduce");
+                Reducer reduceBlock = View.getCompiler().compileReduce(reduceFunction, "javascript");
+                view.setMapReduce(mapBlock, reduceBlock, version);
+
+                if (view.getReduce() == null) {
+                    promise.reject("INVALID_REDUCE", "Invalid reduce function");
+                    return;
+                }
+            } else {
+                view.setMap(mapBlock, version);
+            }
+
+            if (db.getExistingView(viewName) == null) {
+                promise.reject("INVALID_VIEW", String.format("View %@: was not added to database", viewName));
+                return;
+            }
+
+            if (view.getMap() == null) {
+                promise.reject("INVALID_MAP", "Invalid map function");
+                return;
+            }
+
+        } catch (CouchbaseLiteException e) {
+            promise.reject("COUCHBASE_ERROR", e);
+            if (view != null) view.delete();
+        } catch (Exception e) {
+            promise.reject("NOT_OPENED", e);
+            if (view != null) view.delete();
+        }
+    }
+
+    /**
      * Gets all the documents returned by the given view.
      * @param database String Database name.
      * @param design String Design document where the view can be found.
@@ -1040,7 +1103,7 @@ public class CouchBase extends ReactContextBaseJavaModule {
                     return;
                 }
 
-            
+
                 view = db.getView(viewName);
                 if (viewDefinition.containsKey("reduce")) {
                     Reducer reducer = View.getCompiler().compileReduce((String) viewDefinition.get("reduce"), "javascript");
