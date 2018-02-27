@@ -1154,6 +1154,7 @@ public class CouchBase extends ReactContextBaseJavaModule {
         }
     }
 
+    /*
     @ReactMethod
     public void installPrebuiltDatabase(String name) {
         Manager ss = null;
@@ -1175,4 +1176,5 @@ public class CouchBase extends ReactContextBaseJavaModule {
         }
 
     }
+    */
 }
