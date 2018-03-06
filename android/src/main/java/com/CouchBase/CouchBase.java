@@ -57,6 +57,7 @@ import java.util.List;
 import java.util.HashMap;
 import java.io.IOException;
 import java.net.URL;
+import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -476,6 +477,7 @@ public class CouchBase extends ReactContextBaseJavaModule {
     public void serverRemotePull(String databaseLocal, String remoteURL, String  remoteUser,
                                   String remotePassword, ReadableMap options, Promise promise) {
 
+        // TODO: Add channels to mirror iOS code
         Manager ss = this.managerServer;
 
         if(ss == null)
@@ -487,7 +489,35 @@ public class CouchBase extends ReactContextBaseJavaModule {
             URL url = new URL(remoteURL);
             Database db = ss.getExistingDatabase(databaseLocal);
             final Replication pull = db.createPullReplication(url);
-            pull.setContinuous(true);
+
+            if (options.hasKey("continuous"))
+                pull.setContinuous(options.getBoolean("continuous"));
+            else
+                pull.setContinuous(true);
+
+
+            if (options.hasKey("channels")) {
+                ArrayList<Object> channelList = options.getArray("channels").toArrayList();
+                List<String> channels = new ArrayList<>(channelList.size());
+                for (Object object : channelList) {
+                    channels.add(object != null ? object.toString() : null);
+                }
+                pull.setChannels(channels);
+                Log.d("serverRemotePull","Set replication channels: %@", pull.getChannels().toString());
+            }
+            else if (options.hasKey("filter")) {
+                pull.setFilter(options.getString("filter"));
+                pull.setFilterParams(options.getMap("filterParams").toHashMap());
+                Log.d("serverRemotePull","Set filter '%@' with params '%@'", pull.getFilter(), pull.getFilterParams());
+            }
+            else if (options.hasKey("documentIDs")) {
+                ArrayList<Object> docIdList = options.getArray("documentIDs").toArrayList();
+                List<String> docIds = new ArrayList<>(docIdList.size());
+                for (Object object : docIdList) {
+                    docIds.add(object != null ? object.toString() : null);
+                }
+                pull.setDocIds(docIds);
+            }
 
             Authenticator basicAuthenticator = AuthenticatorFactory.createBasicAuthenticator(remoteUser, remotePassword);
             pull.setAuthenticator(basicAuthenticator);
@@ -524,11 +554,19 @@ public class CouchBase extends ReactContextBaseJavaModule {
                                 }
                             }
                         } else {
-                            WritableMap eventM = Arguments.createMap();
-                            eventM.putString("databaseName", event.getSource().getLocalDatabase().getName());
-                            eventM.putString("changesCount", String.valueOf(event.getSource().getCompletedChangesCount()));
-                            eventM.putString("totalChanges", String.valueOf(event.getSource().getChangesCount()));
-                            sendEvent(context, PULL_EVENT_KEY, eventM);
+                            if (skippedEvents == 0 ||
+                                    (event.getSource().getCompletedChangesCount() == event.getSource().getChangesCount())) {
+
+                                WritableMap eventM = Arguments.createMap();
+                                eventM.putString("databaseName", event.getSource().getLocalDatabase().getName());
+                                eventM.putString("changesCount", String.valueOf(event.getSource().getCompletedChangesCount()));
+                                eventM.putString("totalChanges", String.valueOf(event.getSource().getChangesCount()));
+                                sendEvent(context, PULL_EVENT_KEY, eventM);
+                            }
+
+                            if (skipReplicationEvents > 0) {
+                                skippedEvents = (skippedEvents + 1) % skipReplicationEvents;
+                            }
                         }
                     }
                 });
@@ -538,6 +576,7 @@ public class CouchBase extends ReactContextBaseJavaModule {
 
             promise.resolve(null);
         }catch(Exception e){
+            e.printStackTrace();
             promise.reject("NOT_OPENED", e);
         }
     }
