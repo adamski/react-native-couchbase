@@ -460,6 +460,7 @@ public class CouchBase extends ReactContextBaseJavaModule {
 
             promise.resolve(null);
         }catch(Exception e){
+            e.printStackTrace();
             promise.reject("NOT_OPENED", e);
         }
     }
@@ -654,6 +655,7 @@ public class CouchBase extends ReactContextBaseJavaModule {
 
             promise.resolve(null);
         }catch(Exception e){
+            e.printStackTrace();
             promise.reject("NOT_OPENED", e);
         }
     }
@@ -871,6 +873,7 @@ public class CouchBase extends ReactContextBaseJavaModule {
         } catch (CouchbaseLiteException e) {
             promise.reject("COUCHBASE_ERROR", e);
         } catch (Exception e) {
+            e.printStackTrace();
             promise.reject("NOT_OPENED", e);
         }
     }
@@ -912,6 +915,7 @@ public class CouchBase extends ReactContextBaseJavaModule {
         } catch (CouchbaseLiteException e) {
             promise.reject("COUCHBASE_ERROR", e);
         } catch (Exception e) {
+            e.printStackTrace();
             promise.reject("NOT_OPENED", e);
         }
     }
@@ -954,6 +958,7 @@ public class CouchBase extends ReactContextBaseJavaModule {
         } catch (CouchbaseLiteException e) {
             promise.reject("COUCHBASE_ERROR", e);
         } catch (Exception e) {
+            e.printStackTrace();
             promise.reject("NOT_OPENED", e);
         }
     }
@@ -1026,6 +1031,7 @@ public class CouchBase extends ReactContextBaseJavaModule {
         } catch (CouchbaseLiteException e) {
             promise.reject("COUCHBASE_ERROR", e);
         } catch (Exception e) {
+            e.printStackTrace();
             promise.reject("NOT_OPENED", e);
         }
     }
@@ -1040,6 +1046,7 @@ public class CouchBase extends ReactContextBaseJavaModule {
     @ReactMethod
     public void addView(String database, String viewName, ReadableMap viewMap, Promise promise) {
 
+        Log.d ("addView", "begin method");
         if (!viewMap.hasKey("map")) {
             promise.reject("MISSING_MAP", "Missing map function");
             return;
@@ -1087,10 +1094,13 @@ public class CouchBase extends ReactContextBaseJavaModule {
             promise.reject("COUCHBASE_ERROR", e);
             if (view != null) view.delete();
         } catch (Exception e) {
+            e.printStackTrace();
             promise.reject("NOT_OPENED", e);
             if (view != null) view.delete();
         }
+
         Log.d ("addView", "Added view %s to db", viewName);
+        promise.resolve(null);
     }
 
     /**
@@ -1162,7 +1172,13 @@ public class CouchBase extends ReactContextBaseJavaModule {
 
             Query query = view.createQuery();
 
+            Boolean includeDocs = true;
+
+
             if (params != null) {
+                if (params.hasKey("include_docs"))
+                    includeDocs = params.getBoolean("include_docs");
+
                 if (params.hasKey("startkey")) {
                     switch (params.getType("startkey")) {
                         case Array:
@@ -1181,12 +1197,15 @@ public class CouchBase extends ReactContextBaseJavaModule {
                     switch (params.getType("startkey")) {
                         case Array:
                             ReadableNativeArray array = (ReadableNativeArray)params.getArray("endkey");
+                            Log.d ("endkey", "array");
                             query.setEndKey(array.toArrayList());
                             break;
                         case String:
+                            Log.d ("endkey", "string");
                             query.setStartKey(params.getString("endkey"));
                             break;
                         case Number:
+                            Log.d ("endkey", "number");
                             query.setStartKey(params.getInt("endkey"));
                             break;
                     }
@@ -1214,7 +1233,11 @@ public class CouchBase extends ReactContextBaseJavaModule {
 
                 WritableMap m = Arguments.createMap();
                 m.putString("key", row.getKey() != null ? String.valueOf(row.getKey()) : null);
-                m.putMap("value", CouchBase.mapToWritableMap((Map<String,Object>)row.getValue()));
+                if (row.getValue() instanceof String)
+                    m.putString("value", (String) row.getValue());
+                else
+                    m.putMap("value", CouchBase.mapToWritableMap((Map<String,Object>)row.getValue()));
+
                 results.pushMap(m);
             }
 
@@ -1230,6 +1253,7 @@ public class CouchBase extends ReactContextBaseJavaModule {
             promise.reject("COUCHBASE_ERROR", e);
             if (view != null) view.delete();
         } catch (Exception e) {
+            e.printStackTrace();
             promise.reject("NOT_OPENED", e);
             if (view != null) view.delete();
         }
@@ -1269,7 +1293,8 @@ public class CouchBase extends ReactContextBaseJavaModule {
         } catch (CouchbaseLiteException e) {
             promise.reject("COUCHBASE_ERROR", e);
         } catch (Exception e) {
-            promise.reject("NOT_OPENED", e);
+            e.printStackTrace();
+            promise.reject(" ", e);
         }
     }
 }
