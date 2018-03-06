@@ -1090,6 +1090,7 @@ public class CouchBase extends ReactContextBaseJavaModule {
             promise.reject("NOT_OPENED", e);
             if (view != null) view.delete();
         }
+        Log.d ("addView", "Added view %s to db", viewName);
     }
 
     /**
