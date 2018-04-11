@@ -871,10 +871,10 @@ public class CouchBase extends ReactContextBaseJavaModule {
             Database db = ss.getDatabase(database);
             promise.resolve(null);
         } catch (CouchbaseLiteException e) {
-            promise.reject("COUCHBASE_ERROR", e);
+            promise.reject("COUCHBASE_ERROR", e.getMessage() + "\n" + e.getStackTrace().toString());
         } catch (Exception e) {
             e.printStackTrace();
-            promise.reject("NOT_OPENED", e);
+            promise.reject("NOT_OPENED", e.getMessage());
         }
     }
 
@@ -956,7 +956,7 @@ public class CouchBase extends ReactContextBaseJavaModule {
                 promise.resolve(Arguments.createMap());
             }
         } catch (CouchbaseLiteException e) {
-            promise.reject("COUCHBASE_ERROR", e);
+            promise.reject("COUCHBASE_ERROR", e.getMessage() + "\n" + e.getStackTrace().toString());
         } catch (Exception e) {
             e.printStackTrace();
             promise.reject("NOT_OPENED", e);
@@ -1235,6 +1235,10 @@ public class CouchBase extends ReactContextBaseJavaModule {
                 m.putString("key", row.getKey() != null ? String.valueOf(row.getKey()) : null);
                 if (row.getValue() instanceof String)
                     m.putString("value", (String) row.getValue());
+                else if (row.getValue() instanceof Integer)
+                    m.putInt("value", (Integer) row.getValue());
+                else if (row.getValue() instanceof Double)
+                    m.putDouble("value", (Double) row.getValue());
                 else
                     m.putMap("value", CouchBase.mapToWritableMap((Map<String,Object>)row.getValue()));
 
@@ -1291,7 +1295,8 @@ public class CouchBase extends ReactContextBaseJavaModule {
                 }
             }
         } catch (CouchbaseLiteException e) {
-            promise.reject("COUCHBASE_ERROR", e);
+            e.printStackTrace();
+            promise.reject("COUCHBASE_ERROR", e.getMessage() + "\n" + e.getStackTrace().toString());
         } catch (Exception e) {
             e.printStackTrace();
             promise.reject(" ", e);
