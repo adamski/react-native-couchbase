@@ -1228,15 +1228,22 @@ public class CouchBase extends ReactContextBaseJavaModule {
                 QueryRow row = it.getRow(i);
 
                 WritableMap m = Arguments.createMap();
-                m.putString("key", row.getKey() != null ? String.valueOf(row.getKey()) : null);
-                if (row.getValue() instanceof String)
-                    m.putString("value", (String) row.getValue());
-                else if (row.getValue() instanceof Integer)
-                    m.putInt("value", (Integer) row.getValue());
-                else if (row.getValue() instanceof Double)
-                    m.putDouble("value", (Double) row.getValue());
-                else
-                    m.putMap("value", CouchBase.mapToWritableMap((Map<String,Object>)row.getValue()));
+                m.putString("key", row.getKey() != null ? String.valueOf(row.getKey()) : row.getDocumentId());
+                m.putString("_id", row.getDocumentId());
+
+                if (includeDocs) {
+                    if (row.getDocument() != null)
+                        m.putMap("value", CouchBase.mapToWritableMap((Map<String,Object>)row.asJSONDictionary()));
+                } else {
+                    if (row.getValue() instanceof String)
+                        m.putString("value", (String) row.getValue());
+                    else if (row.getValue() instanceof Integer)
+                        m.putInt("value", (Integer) row.getValue());
+                    else if (row.getValue() instanceof Double)
+                        m.putDouble("value", (Double) row.getValue());
+                    else
+                        m.putMap("value", CouchBase.mapToWritableMap((Map<String, Object>) row.getValue()));
+                }
 
                 results.pushMap(m);
             }
