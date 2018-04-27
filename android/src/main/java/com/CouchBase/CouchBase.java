@@ -47,6 +47,7 @@ import com.couchbase.lite.auth.AuthenticatorFactory;
 import com.couchbase.lite.replicator.RemoteRequestResponseException;
 import com.couchbase.lite.internal.RevisionInternal;
 
+import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.FormatFlagsConversionMismatchException;
@@ -1109,12 +1110,11 @@ public class CouchBase extends ReactContextBaseJavaModule {
      * @param design String Design document where the view can be found.
      * @param viewName String Name of the view to be queried.
      * @param params ReadableMap JavaScript object containing the extra parameters to pass to the view.
-     * @param docIds ReadableArray JavaScript array containing the keys.
-     * @param forceRebuild Force the rebuild of the view before querying it.
+     * @param keys ReadableArray JavaScript array containing the keys.
      * @param promise Promise Promise to be returned to the JavaScript engine.
      */
     @ReactMethod
-    public void getView(String database, String design, String viewName, ReadableMap params, ReadableArray docIds, Promise promise) {
+    public void getView(String database, String design, String viewName, ReadableMap params, ReadableArray keys, Promise promise) {
         Manager ss = managerServer;
         Database db = null;
         View view = null;
@@ -1217,13 +1217,9 @@ public class CouchBase extends ReactContextBaseJavaModule {
                 if (params.hasKey("group")) query.setGroupLevel(params.getInt("group"));
             }
 
-            if (docIds != null && docIds.size() > 0) {
-                List<Object> keys = new ArrayList<Object>();
-                for (int i = 0; i < docIds.size(); i++) {
-                    keys.add(docIds.getString(i).toString());
-                }
-                query.setKeys(keys);
-            }
+            if (keys != null && keys.size() > 0)
+                query.setKeys(keys.toArrayList());
+
 
             QueryEnumerator it = query.run();
             WritableArray results = Arguments.createArray();
