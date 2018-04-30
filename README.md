@@ -1,6 +1,9 @@
 # react-native-couchbase
 
-React native Couchbase allows to create a couchbase server.
+React Native Couchbase is a React Native module for Couchbase Lite. 
+
+This is a fork of https://github.com/Upinion/react-native-couchbase-lite
+This fork adds missing features and fixes some view-related issues. 
 
 ## Installation
 
@@ -13,11 +16,11 @@ git clone the directory to [node_modules/react-native-couchbase]
 ```
 
 ## Guide
-* [Initialising](https://github.com/Upinion/react-native-couchbase-lite/blob/master/README_Initialise.md): How to start couchbase.
+* [Initialising](https://github.com/adamski/react-native-couchbase/blob/master/README_Initialise.md): How to start couchbase.
 
-* [Functions](https://github.com/Upinion/react-native-couchbase-lite/blob/master/README_Functions.md): Available functions to interact with couchbase.
+* [Functions](https://github.com/adamski/react-native-couchbase/blob/master/README_Functions.md): Available functions to interact with couchbase.
 
-* [Events](https://github.com/Upinion/react-native-couchbase-lite/blob/master/README_Constants.md): All the different events emitted.
+* [Events](https://github.com/adamski/react-native-couchbase/blob/master/README_Constants.md): All the different events emitted.
 
 ## Setup
 
