@@ -70,7 +70,8 @@ public class CouchBase extends ReactContextBaseJavaModule {
     private int listenPort;
     private int skipReplicationEvents = 0;
     private int skippedEvents = 0;
-    protected Boolean isDebug = false;
+    private boolean dbOnline = false;
+    protected boolean isDebug = false;
 
     private static final String PUSH_EVENT_KEY = "couchBasePushEvent";
     private static final String PULL_EVENT_KEY = "couchBasePullEvent";
@@ -260,7 +261,6 @@ public class CouchBase extends ReactContextBaseJavaModule {
                                 }
                             }
                         } else {
-
                             if (skippedEvents == 0 ||
                                     (event.getSource().getCompletedChangesCount() == event.getSource().getChangesCount())) {
 
@@ -400,11 +400,20 @@ public class CouchBase extends ReactContextBaseJavaModule {
                                 }
                             }
                         } else {
-                            WritableMap eventM = Arguments.createMap();
-                            eventM.putString("databaseName", event.getSource().getLocalDatabase().getName());
-                            eventM.putString("changesCount", String.valueOf(event.getSource().getCompletedChangesCount()));
-                            eventM.putString("totalChanges", String.valueOf(event.getSource().getChangesCount()));
-                            sendEvent(context, PULL_EVENT_KEY, eventM);
+                            // TODO put this repeated code in a seperate method
+                            if (skippedEvents == 0 ||
+                                    (event.getSource().getCompletedChangesCount() == event.getSource().getChangesCount())) {
+
+                                WritableMap eventM = Arguments.createMap();
+                                eventM.putString("databaseName", event.getSource().getLocalDatabase().getName());
+                                eventM.putString("changesCount", String.valueOf(event.getSource().getCompletedChangesCount()));
+                                eventM.putString("totalChanges", String.valueOf(event.getSource().getChangesCount()));
+                                sendEvent(context, PULL_EVENT_KEY, eventM);
+                            }
+
+                            if (skipReplicationEvents > 0) {
+                                skippedEvents = (skippedEvents + 1) % skipReplicationEvents;
+                            }
                         }
                     }
                 });
@@ -531,10 +540,12 @@ public class CouchBase extends ReactContextBaseJavaModule {
                     public void changed(Replication.ChangeEvent event) {
                         boolean offline = pull.getStatus() == Replication.ReplicationStatus.REPLICATION_OFFLINE;
                         if (offline) {
+                            dbOnline = false;
                             WritableMap eventOffline = Arguments.createMap();
                             eventOffline.putString("databaseName", event.getSource().getLocalDatabase().getName());
                             sendEvent(context, OFFLINE_KEY, eventOffline);
-                        } else {
+                        } else if (dbOnline == false) {
+                            dbOnline = true;
                             WritableMap eventOnline = Arguments.createMap();
                             eventOnline.putString("databaseName", event.getSource().getLocalDatabase().getName());
                             sendEvent(context, ONLINE_KEY, eventOnline);
@@ -1154,7 +1165,6 @@ public class CouchBase extends ReactContextBaseJavaModule {
                     return;
                 }
 
-
                 view = db.getView(viewName);
                 if (viewDefinition.containsKey("reduce")) {
                     Reducer reducer = View.getCompiler().compileReduce((String) viewDefinition.get("reduce"), "javascript");
@@ -1167,6 +1177,9 @@ public class CouchBase extends ReactContextBaseJavaModule {
                     view.setMap(mapper, version != null ? version : "1.1");
                 }
             } else {
+//                Reducer reducer = view.getReduce();
+//                if (reducer != null)
+//                    String reducerString = reducer.toString();
                 view.updateIndex();
             }
 
@@ -1176,6 +1189,7 @@ public class CouchBase extends ReactContextBaseJavaModule {
 
 
             if (params != null) {
+                // TODO: default to include_docs: false if reduce function present
                 if (params.hasKey("include_docs"))
                     includeDocs = params.getBoolean("include_docs");
 
