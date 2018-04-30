@@ -1,6 +1,9 @@
 # react-native-couchbase
 
-React Native Couchbase is a React Native module for Couchbase Lite. This fork adds missing features and fixes some view-related issues. 
+React Native Couchbase is a React Native module for Couchbase Lite. 
+
+This is a fork of https://github.com/Upinion/react-native-couchbase-lite
+This fork adds missing features and fixes some view-related issues. 
 
 ## Installation
 
