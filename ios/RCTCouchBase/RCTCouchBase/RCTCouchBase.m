@@ -617,9 +617,9 @@ RCT_EXPORT_METHOD(putDocument: (NSString*) db
             if (doc != nil) {
                 CBLSavedRevision* revision = [doc putProperties:dict error:&err];
                 if (revision) {
-                    resolve(@{});
+                    resolve(revision.revisionID);
                 } else {
-                    reject(@"missing_document", [NSString stringWithFormat:@"could not create/update document: %@", docId], nil);
+                    reject(@"missing_revision", [NSString stringWithFormat:@"could not create/update document: %@", docId], err);
                 }
             } else {
                 reject(@"missing_document", [NSString stringWithFormat:@"could not create/update document: %@", docId], nil);
