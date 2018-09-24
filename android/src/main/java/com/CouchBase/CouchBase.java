@@ -4,6 +4,7 @@ import android.content.Intent;
 import android.content.Context;
 
 import com.couchbase.lite.Document;
+import com.couchbase.lite.Revision;
 import com.couchbase.lite.SavedRevision;
 import com.couchbase.lite.Mapper;
 import com.couchbase.lite.Query;
@@ -236,15 +237,16 @@ public class CouchBase extends ReactContextBaseJavaModule {
                     public void changed(Replication.ChangeEvent event) {
                         boolean offline = pull.getStatus() == Replication.ReplicationStatus.REPLICATION_OFFLINE;
                         if (offline) {
+                            dbOnline = false;
                             WritableMap eventOffline = Arguments.createMap();
                             eventOffline.putString("databaseName", event.getSource().getLocalDatabase().getName());
                             sendEvent(context, OFFLINE_KEY, eventOffline);
-                        } else {
+                        } else if (dbOnline == false) {
+                            dbOnline = true;
                             WritableMap eventOnline = Arguments.createMap();
                             eventOnline.putString("databaseName", event.getSource().getLocalDatabase().getName());
                             sendEvent(context, ONLINE_KEY, eventOnline);
-                        }
-                        if (event.getError() != null) {
+                        }                        if (event.getError() != null) {
                             Throwable lastError = event.getError();
                             if (lastError instanceof RemoteRequestResponseException) {
                                 RemoteRequestResponseException exception = (RemoteRequestResponseException) lastError;
@@ -375,15 +377,16 @@ public class CouchBase extends ReactContextBaseJavaModule {
                     public void changed(Replication.ChangeEvent event) {
                         boolean offline = pull.getStatus() == Replication.ReplicationStatus.REPLICATION_OFFLINE;
                         if (offline) {
+                            dbOnline = false;
                             WritableMap eventOffline = Arguments.createMap();
                             eventOffline.putString("databaseName", event.getSource().getLocalDatabase().getName());
                             sendEvent(context, OFFLINE_KEY, eventOffline);
-                        } else {
+                        } else if (dbOnline == false) {
+                            dbOnline = true;
                             WritableMap eventOnline = Arguments.createMap();
                             eventOnline.putString("databaseName", event.getSource().getLocalDatabase().getName());
                             sendEvent(context, ONLINE_KEY, eventOnline);
-                        }
-                        if (event.getError() != null) {
+                        }                        if (event.getError() != null) {
                             Throwable lastError = event.getError();
                             if (lastError instanceof RemoteRequestResponseException) {
                                 RemoteRequestResponseException exception = (RemoteRequestResponseException) lastError;
@@ -823,6 +826,8 @@ public class CouchBase extends ReactContextBaseJavaModule {
                 wm.putDouble(entry.getKey(), ((Long) entry.getValue()).doubleValue());
             } else if (entry.getValue() instanceof String) {
                 wm.putString(entry.getKey(), ((String) entry.getValue()));
+            } else if (entry.getValue() instanceof Map) {
+                wm.putMap(entry.getKey(), CouchBase.mapToWritableMap((Map<String, Object>) entry.getValue()));
             } else if (entry.getValue() instanceof LinkedHashMap) {
                 wm.putMap(entry.getKey(), CouchBase.mapToWritableMap((LinkedHashMap) entry.getValue()));
             } else if (entry.getValue() instanceof WritableMap) {
@@ -933,6 +938,40 @@ public class CouchBase extends ReactContextBaseJavaModule {
     }
 
     /**
+     * Gets an existing document revision from the database.
+     * @param database  String  Database name.
+     * @param docId     String  Document id.
+     * @param revId     String  Revision id.
+     * @param promise   Promise Promise to be returned to the JavaScript engine.
+     */
+    @ReactMethod
+    public void getDocumentRevision(String database, String docId, String revId, Promise promise) {
+        Manager ss = this.managerServer;
+        Database db = null;
+        try {
+            db = ss.getExistingDatabase(database);
+            Map<String, Object> properties = null;
+
+            Document doc = db.getExistingDocument(docId);
+            if (doc != null) {
+                properties = doc.getCurrentRevision().getProperties();
+            }
+
+            if (properties != null) {
+                WritableMap result = CouchBase.mapToWritableMap(properties);
+                promise.resolve(result);
+            } else {
+                promise.resolve(Arguments.createMap());
+            }
+        } catch (CouchbaseLiteException e) {
+            promise.reject("COUCHBASE_ERROR", e.getMessage() + "\n" + e.getStackTrace().toString());
+        } catch (Exception e) {
+            e.printStackTrace();
+            promise.reject("NOT_OPENED", e);
+        }
+    }
+
+    /**
      * Gets an existing document from the database.
      * @param database  String  Database name.
      * @param docId     String  Document id.
@@ -958,7 +997,6 @@ public class CouchBase extends ReactContextBaseJavaModule {
                 if (doc != null) {
                     properties = doc.getCurrentRevision().getProperties();
                 }
-                
             }
 
             if (properties != null) {
@@ -1305,8 +1343,8 @@ public class CouchBase extends ReactContextBaseJavaModule {
             } else {
                 Document doc = db.getDocument(docId);
                 if (doc != null) {
-                    doc.putProperties(properties);
-                    promise.resolve(null);
+                    SavedRevision rev = doc.putProperties(properties);
+                    promise.resolve (rev.getId()); // Return rev id
                 } else {
                     promise.reject("MISSING_DOCUMENT", "Could not create/update document");
                 }
