@@ -386,7 +386,8 @@ public class CouchBase extends ReactContextBaseJavaModule {
                             WritableMap eventOnline = Arguments.createMap();
                             eventOnline.putString("databaseName", event.getSource().getLocalDatabase().getName());
                             sendEvent(context, ONLINE_KEY, eventOnline);
-                        }                        if (event.getError() != null) {
+                        }
+                        if (event.getError() != null) {
                             Throwable lastError = event.getError();
                             if (lastError instanceof RemoteRequestResponseException) {
                                 RemoteRequestResponseException exception = (RemoteRequestResponseException) lastError;
@@ -590,7 +591,8 @@ public class CouchBase extends ReactContextBaseJavaModule {
 
             pull.start();
 
-            promise.resolve(null);
+            promise.resolve (pull.getStatus().toString());
+
         }catch(Exception e){
             e.printStackTrace();
             promise.reject("NOT_OPENED", e);
@@ -1020,7 +1022,7 @@ public class CouchBase extends ReactContextBaseJavaModule {
      * @param promise   Promise         Promise to be returned to the JavaScript engine.
      */
     @ReactMethod
-    public void getAllDocuments(String database, ReadableArray docIds, Promise promise) {
+    public void getAllDocuments(String database, ReadableArray docIds, boolean includeDocs, Promise promise) {
         Manager ss = this.managerServer;
         Database db = null;
         try {
@@ -1029,6 +1031,7 @@ public class CouchBase extends ReactContextBaseJavaModule {
 
             if (docIds == null || docIds.size() == 0) {
                 Query query = db.createAllDocumentsQuery();
+                if (includeDocs) query.setPrefetch(true);
                 query.setAllDocsMode(Query.AllDocsMode.ALL_DOCS);
 
                 Iterator<QueryRow> it = query.run();
@@ -1039,7 +1042,8 @@ public class CouchBase extends ReactContextBaseJavaModule {
                     m2.putString("rev", row.getDocumentRevisionId());
                     m.putString("key", String.valueOf(row.getKey()));
                     m.putString("_id", String.valueOf(row.getKey()));
-                    m.putMap("doc", CouchBase.mapToWritableMap((Map) row.getValue()));
+                    if (includeDocs)
+                        m.putMap("doc", CouchBase.mapToWritableMap((Map) row.getDocumentProperties()));
                     m.putMap("value", m2);
                     results.pushMap(m);
                 }
@@ -1272,6 +1276,7 @@ public class CouchBase extends ReactContextBaseJavaModule {
             if (keys != null && keys.size() > 0)
                 query.setKeys(keys.toArrayList());
 
+            query.setPrefetch(includeDocs);
 
             QueryEnumerator it = query.run();
             WritableArray results = Arguments.createArray();
@@ -1284,8 +1289,11 @@ public class CouchBase extends ReactContextBaseJavaModule {
                 m.putString("_id", row.getDocumentId());
 
                 if (includeDocs) {
-                    if (row.getDocument() != null)
-                        m.putMap("value", CouchBase.mapToWritableMap((Map<String,Object>)row.asJSONDictionary()));
+                    if (row.getDocument() != null) {
+                        Map<String, Object> docProperties = row.getDocumentProperties();
+                        if (docProperties != null)
+                            m.putMap("value", CouchBase.mapToWritableMap(docProperties));
+                    }
                 } else {
                     if (row.getValue() instanceof String)
                         m.putString("value", (String) row.getValue());
