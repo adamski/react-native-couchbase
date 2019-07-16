@@ -505,6 +505,8 @@ RCT_EXPORT_METHOD(compact: (NSString*) databaseLocal)
             if (!compact) {
                 NSLog(@"Database %@: could not compact. %@", databaseLocal, err);
             }
+
+            resolve(@{});
         }];
     }
 }
@@ -578,7 +580,10 @@ RCT_EXPORT_METHOD(closeDatabase: (NSString*) databaseName withCallback: (RCTResp
                 NSArray *cb = @[];
                 onEnd(@[[NSNull null], cb]);
             }
+
+            resolve(@{});
         }];
+
 
     }
 }
@@ -625,6 +630,8 @@ RCT_EXPORT_METHOD(putDocument: (NSString*) db
                 reject(@"missing_document", [NSString stringWithFormat:@"could not create/update document: %@", docId], nil);
             }
         }
+
+
     }];
 }
 
@@ -690,6 +697,8 @@ RCT_EXPORT_METHOD(deleteDocument: (NSString*) db
         } else {
             reject(@"not_deleted", [NSString stringWithFormat:@"document not deleted %@", docId], delError);
         }
+
+        resolve(@{});
         
     }];
 }
@@ -824,6 +833,7 @@ RCT_EXPORT_METHOD(addView: (NSString*) db
             return;
         }
 
+        resolve(@{});
     }];
 }
 
@@ -839,9 +849,14 @@ RCT_EXPORT_METHOD(getView: (NSString*) db
         reject(@"not_opened", [NSString stringWithFormat:@"Database %@: could not be opened", db], nil);
         return;
     }
+    if (viewName == NULL) {
+        reject(@"null_view", @"View name empty", nil);
+        return;
+    }
     [manager doAsync:^(void) {
         NSError* err;
-        //NSLog(@"Getting View named %@", viewName);
+
+        NSLog(@"Getting View named %@", viewName);
         CBLDatabase* database = [manager existingDatabaseNamed:db error:&err];
         CBLView* view = [database existingViewNamed:viewName];
         if (view == nil || (view && [view mapBlock] == nil)) {
