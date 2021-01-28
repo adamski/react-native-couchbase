@@ -12,4 +12,8 @@ Pod::Spec.new do |s|
   s.platform            = :ios, "8.0"
   s.source              = { :path => "." }
   s.source_files        = "ios", "ios/**/*.{h,m}"
+ 
+  s.dependency 'React'
+  s.dependency 'couchbase-lite-ios'
+
 end
